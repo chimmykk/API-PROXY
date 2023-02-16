@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>DogePound</title>
+  </head>
+  <body onload="makeRequest()">
+    <p id="response"></p>
+
+    <script>
+      function makeRequest() {
+        fetch('http://localhost:3000/wallet.json')
+          .then(response => response.json())
+          .then(data => {
+            document.getElementById('response').innerHTML = data.address;
+          })
+          .catch(error => {
+            console.error(error);
+            document.getElementById('response').innerHTML = 'Error: ' + error.message;
+          });
+      }
+    </script>
+  </body>
+</html>
