@@ -26,8 +26,8 @@ app.get('/verify-proxy-ownership', async (req, res) => {
   const userWalletAddress = req.query.userWalletAddress;
   const nftTokenId = req.query.nftTokenId;
   //again here -> to go with specific TokenID
-  // app.get('/verify-proxy-ownership', async (req, res) => {
-  const userWalletAddress = req.query.userWalletAddress;
+  // app.get('/verify-proxy-ownership', async (req, res) =>
+ 
 
   // Check if user's wallet holds at least one NFT
   const hasNFT = await nftContract.methods.balanceOf(userWalletAddress).call();
