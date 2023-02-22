@@ -1,6 +1,5 @@
 const http = require('http');
 const express = require('express');
-const { ec } = require('elliptic');
 const Web3 = require('web3');
 const contractABI = require('./NFTContractABI.json');
 
@@ -16,7 +15,6 @@ const web3 = new Web3('https://goerli.infura.io/v3/3376a33c419a4d249d680fa54ff8b
 // Initialize the contract instance using its ABI and address
 const contractAddress = '0xF4ee95274741437636e748DdAc70818B4ED7d043'; 
 const nftContract = new web3.eth.Contract(contractABI, contractAddress);
-const secp256k1 = new ec('secp256k1');
 
 const server = http.createServer(app);
 
@@ -25,14 +23,12 @@ app.get('/verify-ownership', async (req, res) => {
   const userWalletAddress = req.query.userWalletAddress;
   const nftTokenId = req.query.nftTokenId;
 
-          // Check if user's wallet holds at least one NFT
+  // Check if user's wallet holds at least one NFT
   const hasNFT = await nftContract.methods.balanceOf(userWalletAddress).call();
   if (hasNFT <= 0) {
     res.status(401).send('User does not hold any NFTs');
     return;
   }
-  res.json(signedMessage);
-return;
 
   // Get the owner of the NFT
   const owner = await nftContract.methods.ownerOf(nftTokenId).call();
@@ -44,7 +40,7 @@ return;
   res.status(200).json({ message: 'Ownership verified successfully' });
 });
 
-// Grant access or sign a gated page using a proxy wallet
+// Grant access to gated page using a proxy wallet
 app.get('/grant-access', async (req, res) => {
   const proxyWalletAddress = req.query.proxyWalletAddress;
   const gatedPageId = req.query.gatedPageId;
@@ -56,21 +52,10 @@ app.get('/grant-access', async (req, res) => {
     return;
   }
 
-  // Grant access or sign gated page using the proxy wallet's private key
-  const privateKey = 'xxxx'; // Replace with proxy wallet's private key
-  const msgHash = web3.utils.keccak256(`You are granting access to gated page with ID ${gatedPageId}`);
-  const msgHashHex = `0x${msgHash}`;
-  const msgHashBytes = Buffer.from(msgHashHex.slice(2), 'hex');
-  const signature = secp256k1.keyFromPrivate(privateKey).sign(msgHashBytes);
-  const r = signature.r.toString(16);
-  const s = signature.s.toString(16);
-  const v = signature.recoveryParam + 27;
-  const signedMessage = {
-    messageHash: msgHashHex,
-    v: `0x${v.toString(16)}`,
-    r: `0x${r.padStart(64, '0')}`,
-    s: `0x${s.padStart(64, '0')}`,
-  };
+  // Grant access to gated page
+  res.status(200).json({ message: `Access granted to gated page with ID ${gatedPageId}` });
+});
 
-  res.json(signedMessage);
-return;
+server.listen(port, hostname, () => {
+  console.log(`Server running at http://${hostname}:${port}/`);
+});
