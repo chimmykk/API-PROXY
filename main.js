@@ -62,30 +62,4 @@ server.listen(port, hostname, () => {
 This code will check if a user owns an NFT from the contract address  assume if yes then provide proxy access.
 
 
-  // Verify ownership using the user's private key and the NFT's token ID
-  const privateKey = 'xxxx'; // Replace with user's private key
-  const msgHash = web3.utils.keccak256(`You are verifying ownership of NFT with ID ${nftTokenId}`);
-  const msgHashHex = `0x${msgHash}`;
-  const msgHashBytes = Buffer.from(msgHashHex.slice(2), 'hex');
-  const signature = secp256k1.keyFromPrivate(privateKey).sign(msgHashBytes);
-  const r = signature.r.toString(16);
-  const s = signature.s.toString(16);
-  const v = signature.recoveryParam + 27;
-  const signedMessage = {
-    messageHash: msgHashHex,
-    v: `0x${v.toString(16)}`,
-    r: `0x${r.padStart(64, '0')}`,
-    s: `0x${s.padStart(64, '0')}`,
-  };
-  const address = await web3.eth.personal.ecRecover(msgHashHex, signedMessage);
-  if (address.toLowerCase() !== userWalletAddress.toLowerCase()) {
-    res.status(401).send('Invalid signature');
-    return;
-  }
-
-  res.status(200).json({ message: 'Ownership verified successfully' });
-});
-
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
-});
+ 
