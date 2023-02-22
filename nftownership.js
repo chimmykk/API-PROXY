@@ -72,4 +72,5 @@ app.get('/grant-access', async (req, res) => {
     s: `0x${s.padStart(64, '0')}`,
   };
 
-  res
+  res.json(signedMessage);
+return;
