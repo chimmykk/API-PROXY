@@ -1,19 +1,14 @@
 const http = require('http');
+const express = require('express');
+const { ec } = require('elliptic');
+const Web3 = require('web3');
+const contractABI = require('./NFTContractABI.json');
 
 const hostname = '127.0.0.1';
 const port = 3000;
 
-const server = http.createServer((req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.statusCode = 200;
-  res.end(JSON.stringify( '0d657f444BF2AA726a085067C4E26e782d837452' ));
-});
-
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
-  const Web3 = require('web3');
-const { ec } = require('elliptic');
-const contractABI = require('./NFTContractABI.json');
+const app = express();
+app.use(express.json());
 
 // Initialize Web3 with your Ethereum network's endpoint URL
 const web3 = new Web3('https://goerli.infura.io/v3/3376a33c419a4d249d680fa54ff8b6bf');
@@ -24,75 +19,47 @@ const nftContract = new web3.eth.Contract(contractABI, contractAddress);
 
 // Initialize the elliptic curve cryptography library for signing and verifying messages
 const secp256k1 = new ec('secp256k1');
-const express = require('express');
-const app = express();
-// Endpoint to check if user holds the NFT and grant access to proxy wallet for verifying ownership of any message
+
+const server = http.createServer(app);
+
 app.get('/verify-proxy-ownership', async (req, res) => {
   const userWalletAddress = req.query.userWalletAddress;
   const nftTokenId = req.query.nftTokenId;
+  //again here -> to go with specific TokenID
+  // app.get('/verify-proxy-ownership', async (req, res) => {
+  const userWalletAddress = req.query.userWalletAddress;
 
-  // Check if user's wallet holds the NFT
-  const ownerOfToken = await nftContract.methods.ownerOf(nftTokenId).call();
-  if (ownerOfToken.toLowerCase() !== userWalletAddress.toLowerCase()) {
-    res.status(401).send('User does not hold the specified NFT');
+  // Check if user's wallet holds at least one NFT
+  const hasNFT = await nftContract.methods.balanceOf(userWalletAddress).call();
+  if (hasNFT <= 0) {
+    res.status(401).send('User does not hold any NFTs');
+    return;
+  } //
+
+  // Verify ownership using the user's private key and the NFT's token ID
+  const privateKey = 'xxxx'; // Replace with user's private key
+  const msgHash = web3.utils.keccak256(`You are verifying ownership of NFT with ID ${nftTokenId}`);
+  const msgHashHex = `0x${msgHash}`;
+  const msgHashBytes = Buffer.from(msgHashHex.slice(2), 'hex');
+  const signature = secp256k1.keyFromPrivate(privateKey).sign(msgHashBytes);
+  const r = signature.r.toString(16);
+  const s = signature.s.toString(16);
+  const v = signature.recoveryParam + 27;
+  const signedMessage = {
+    messageHash: msgHashHex,
+    v: `0x${v.toString(16)}`,
+    r: `0x${r.padStart(64, '0')}`,
+    s: `0x${s.padStart(64, '0')}`,
+  };
+  const address = await web3.eth.personal.ecRecover(msgHashHex, signedMessage);
+  if (address.toLowerCase() !== userWalletAddress.toLowerCase()) {
+    res.status(401).send('Invalid signature');
     return;
   }
 
-  // Grant access to proxy wallet for verifying ownership of any message
-  // Replace the following code with your own implementation
-  const proxyWalletPrivateKey = ''; // Replace with the private key of your proxy wallet
-  const messageToVerify = req.query.messageToVerify; // Replace with the message to verify
-  const signature = signMessageWithProxyWallet(proxyWalletPrivateKey, messageToVerify);
-  const proxyWalletPublicKey = secp256k1.keyFromPrivate(proxyWalletPrivateKey).getPublic('hex');
-  const isVerified = verifySignatureWithProxyWallet(proxyWalletPublicKey, messageToVerify, signature);
-  
-  if (isVerified) {
-    res.status(200).send('Proxy wallet ownership is verified');
-  } else {
-    res.status(401).send('Proxy wallet ownership is not verified');
-  }
+  res.status(200).json({ message: 'Ownership verified successfully' });
 });
 
-// Function to sign a message with a proxy wallet
-function signMessageWithProxyWallet(proxyWalletPrivateKey, messageToSign) {
-  const messageHash = web3.utils.sha3(messageToSign);
-  const signatureObject = secp256k1.sign(messageHash, proxyWalletPrivateKey, { canonical: true });
-  const signature = '0x' + signatureObject.r.toString('hex') + signatureObject.s.toString('hex') + (signatureObject.recoveryParam + 27).toString(16);
-  return signature;
-}
-
-function verifySignatureWithProxyWallet(proxyWalletPublicKey, messageToVerify, signature) {
-  const messageHash = web3.utils.sha3(messageToVerify);
-  const signatureBytes = web3.utils.hexToBytes(signature);
-  const signatureObject = {
-    r: signatureBytes.slice(0, 32),
-    s: signatureBytes.slice(32, 64),
-    recoveryParam: Number('0x' + signatureBytes.slice(64, 66)) - 27
-  };
-  const publicKeyObject = secp256k1.keyFromPublic(proxyWalletPublicKey, 'hex');
-  const isVerified = publicKeyObject.verify(messageHash, signatureObject); // Returns true if the signature is valid, false otherwise
-  return isVerified;
-}
-
-
-}); 
-async function verifySignature() {
-  try {
-    const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-    const address = accounts[0];
-    const signature = await ethereum.request({ method: 'eth_sign', params: [address, 'Access Request'] });
-    const response = await fetch('http://localhost:3000/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, signature })
-    });
-    if (response.ok) {
-      // Perform the action that required the signature here
-    } else {
-      throw new Error('Access Denied');
-    }
-  } catch (error) {
-    console.error(error);
-    alert(error.message);
-  }
-}
+server.listen(port, hostname, () => {
+  console.log(`Server running at http://${hostname}:${port}/`);
+});
